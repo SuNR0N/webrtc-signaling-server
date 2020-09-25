@@ -1,0 +1,59 @@
+openapi: '3.0.0'
+info:
+  version: 0.1.0
+  title: WebRTC Signaling Server API
+  contact:
+    name: Norbert Annus
+    email: annus.norbert@gmail.com
+servers:
+  - url: ws://localhost:5000
+tags:
+  - name: 'WebSocket'
+paths:
+  /signal:
+    get:
+      summary: WebSocket endpoint for the remote peers
+      description: The WebSocket is being used to receive/send signaling messages from/to the connected peers
+      tags:
+        - WebSocket
+      parameters:
+        - in: header
+          name: Sec-WebSocket-Extensions
+          schema:
+            type: string
+          required: true
+          example: 'permessage-deflate; client_max_window_bits'
+        - in: header
+          name: Sec-WebSocket-Key
+          schema:
+            type: string
+          required: true
+          example: 'Ql3u1JenZooEyUxVLfPETQ=='
+        - in: header
+          name: Sec-WebSocket-Version
+          schema:
+            type: number
+          required: true
+          example: 13
+        - in: header
+          name: Upgrade
+          schema:
+            type: string
+          required: true
+          example: 'websocket'
+      responses:
+        '101':
+          description: Switching protocols
+          headers:
+            Connection:
+              schema:
+                type: string
+                example: 'Upgrade'
+            Sec-WebSocket-Accept:
+              schema:
+                type: string
+                example: 'F/43wsRGIdyu1mCp0GxoDHjoX6I='
+            Upgrade:
+              schema:
+                type: string
+                example: 'websocket'

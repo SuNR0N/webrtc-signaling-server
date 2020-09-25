@@ -1,0 +1,43 @@
+{
+  "name": "webrtc-signaling-server",
+  "version": "0.1.0",
+  "description": "WebRTC Signaling Server",
+  "main": "index.js",
+  "repository": "git@github.com:SuNR0N/webrtc-signaling-server.git",
+  "author": "annus.norbert@gmail.com",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node -r dotenv/config src",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "start": "node dist",
+    "watch": "nodemon -e ts -x run-s dev"
+  },
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "koa": "^2.13.0",
+    "koa-bodyparser": "^4.3.0",
+    "koa-router": "^9.4.0",
+    "koa-websocket": "^6.0.0",
+    "koa2-swagger-ui": "^5.0.2",
+    "uuid": "^8.3.0",
+    "winston": "^3.3.3",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/koa": "^2.11.4",
+    "@types/koa-bodyparser": "^4.3.0",
+    "@types/koa-router": "^7.4.1",
+    "@types/koa-websocket": "^5.0.4",
+    "@types/uuid": "^8.3.0",
+    "@types/yamljs": "^0.2.31",
+    "@typescript-eslint/eslint-plugin": "^4.2.0",
+    "@typescript-eslint/parser": "^4.2.0",
+    "eslint": "^7.9.0",
+    "nodemon": "^2.0.4",
+    "npm-run-all": "^4.1.5",
+    "ts-node": "^9.0.0",
+    "typescript": "^4.0.3"
+  }
+}
