@@ -1,5 +1,15 @@
 # webrtc-signaling-server
 
+## STUN servers
+
+```sh
+stun.l.google.com:19302
+stun1.l.google.com:19302
+stun2.l.google.com:19302
+stun3.l.google.com:19302
+stun4.l.google.com:19302
+```
+
 ## Environment variables
 
 Set up a `.env` file as follows:

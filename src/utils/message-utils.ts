@@ -1,12 +1,12 @@
 import WebSocket from 'ws';
 
-import { ClientMessageAction, SignalingActionTypes } from '../models/signaling-action-types';
+import { ClientMessage, SignalingMessage } from '../models/signaling-message';
 import { logger as baseLogger } from '../logging/logger';
 
 const logger = baseLogger.child({ module: 'MessageUtils' });
 
-export const parseMessage = (message: string): ClientMessageAction | undefined => {
-  let data: ClientMessageAction;
+export const parseMessage = (message: string): ClientMessage | undefined => {
+  let data: ClientMessage;
 
   try {
     data = JSON.parse(message);
@@ -15,14 +15,14 @@ export const parseMessage = (message: string): ClientMessageAction | undefined =
     return;
   }
 
-  if (!data.id) {
-    logger.info(`Message does not contain an 'id' field: ${message}`);
+  if (!data.payload.id) {
+    logger.info(`Message does not contain an 'id' field within its payload: ${message}`);
     return;
   }
 
   return data;
 };
 
-export const sendMessage = (ws: WebSocket, message: SignalingActionTypes, cb?: (err?: Error | undefined) => void): void => {
+export const sendMessage = (ws: WebSocket, message: SignalingMessage, cb?: (err?: Error | undefined) => void): void => {
   ws.send(JSON.stringify(message), cb);
 };

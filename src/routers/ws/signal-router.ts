@@ -5,7 +5,7 @@ import { v4 } from 'uuid';
 
 import { logger as baseLogger } from '../../logging/logger';
 import { AppConfig, RouteConfig } from '../../config';
-import { helloMessage, iceServersMessage } from '../../models/signaling-messages';
+import { helloMessage, iceServersMessage } from '../../models/signaling-message';
 import { connectionManagerService } from '../../services';
 import { parseMessage, sendMessage } from '../../utils/message-utils';
 
@@ -31,13 +31,17 @@ const handleMessageForPeer = (id: string) => (message: string) => {
     return;
   }
 
+  const {
+    payload: { id: peerId },
+  } = data;
+
   // The direct lookup of the other clients websocket is overly simplified.
   // In the real world you might be running in a cluster and would need to send
   // messages between different servers in the cluster to reach the other side.
-  const peer = connectionManagerService.getConnection(data.id);
+  const peer = connectionManagerService.getConnection(peerId);
 
   if (!peer) {
-    logger.info(`Peer id '${data.id}' provided by client '${id}' cannot be found`);
+    logger.info(`Peer id '${peerId}' provided by client '${id}' cannot be found`);
     // TODO: the protocol needs some error handling here. This can be as
     // simple as sending a 'bye' with an extra error element saying 'not-found'.
     return;
@@ -46,8 +50,7 @@ const handleMessageForPeer = (id: string) => (message: string) => {
   // Stamp messages with our id. In the client-to-server direction, 'id' is the
   // client that the message is sent to. In the server-to-client direction, it is
   // the client that the message originates from.
-  const { id: peerId } = data;
-  data.id = id;
+  data.payload.id = id;
   sendMessage(peer, data, (err) => {
     if (err) {
       logger.info(`Failed to send message to peer '${peerId}' from client '${id}'`);
