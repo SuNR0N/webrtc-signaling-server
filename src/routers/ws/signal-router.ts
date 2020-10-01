@@ -5,8 +5,8 @@ import { v4 } from 'uuid';
 
 import { logger as baseLogger } from '../../logging/logger';
 import { RouteConfig } from '../../config';
-import { helloMessage, iceServersMessage } from '../../models/signaling-message';
-import { connectionManagerService } from '../../services';
+import { byeMessage, ErrorType, helloMessage, iceServersMessage, Peer, SignalingMessageType } from '../../models';
+import { connectionManagerService, sessionManagerService } from '../../services';
 import { parseMessage, sendMessage } from '../../utils/message-utils';
 import { getIceServers } from '../../utils/ice-server-utils';
 
@@ -15,45 +15,80 @@ const {
   signal: { prefix },
 } = RouteConfig;
 
+const handleAnswerMessage = (sourcePeer: Peer, sourcePeerId: string, destinationPeer: Peer, destinationPeerId: string) => {
+  sessionManagerService.createSession(destinationPeerId, sourcePeerId);
+  sourcePeer.peerConnections.push(destinationPeerId);
+  destinationPeer.peerConnections.push(sourcePeerId);
+};
+
+const handleByeMessage = (sourcePeer: Peer, sourcePeerId: string, destinationPeer: Peer, destinationPeerId: string) => {
+  sessionManagerService.endSession(sourcePeerId, destinationPeerId);
+  const destinationPeerIndex = sourcePeer.peerConnections.findIndex((id) => id === destinationPeerId);
+  if (destinationPeerIndex > -1) {
+    sourcePeer.peerConnections.splice(destinationPeerIndex, 1);
+  }
+  const sourcePeerIndex = destinationPeer.peerConnections.findIndex((id) => id === sourcePeerId);
+  if (sourcePeerIndex > -1) {
+    destinationPeer.peerConnections.splice(sourcePeerIndex, 1);
+  }
+};
+
 // Remove the connection. Note that this does not tell anyone you are currently in a call with
 // that this happened. This would require additional statekeeping that is not done here.
 const handleCloseForPeer = (id: string) => () => {
   logger.info(`Connection has been closed for id: ${id}`);
-  connectionManagerService.removeConnection(id);
+  const connectedPeers = connectionManagerService.getConnectedPeers(id);
+  connectedPeers.forEach((peer) => {
+    sendMessage(peer, byeMessage(id));
+  });
+  connectionManagerService.removePeer(id);
 };
 
-const handleMessageForPeer = (id: string) => (message: string) => {
-  const data = parseMessage(message);
+const handleMessageForPeer = (sourcePeerId: string) => (rawMessage: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const sourcePeer = connectionManagerService.getPeer(sourcePeerId)!;
+  const message = parseMessage(rawMessage);
 
-  // TODO: your protocol should send some kind of error back to the caller instead of
-  // returning silently below.
-  if (!data) {
+  // Sending a 'bye' message with an appropriate error text
+  if (!message) {
+    sendMessage(sourcePeer.ws, byeMessage('', ErrorType.InvalidMessageFormat));
     return;
   }
 
   const {
-    payload: { id: peerId },
-  } = data;
+    payload: { id: destinationPeerId },
+  } = message;
 
   // The direct lookup of the other clients websocket is overly simplified.
   // In the real world you might be running in a cluster and would need to send
   // messages between different servers in the cluster to reach the other side.
-  const peer = connectionManagerService.getConnection(peerId);
+  const destinationPeer = connectionManagerService.getPeer(destinationPeerId);
 
-  if (!peer) {
-    logger.info(`Peer id '${peerId}' provided by client '${id}' cannot be found`);
-    // TODO: the protocol needs some error handling here. This can be as
-    // simple as sending a 'bye' with an extra error element saying 'not-found'.
+  if (!destinationPeer) {
+    logger.info(`Peer id '${destinationPeerId}' provided by client '${sourcePeerId}' cannot be found`);
+    // Sending a 'bye' message with an appropriate error text
+    sendMessage(sourcePeer.ws, byeMessage(destinationPeerId, ErrorType.NotFound));
     return;
+  }
+
+  switch (message.type) {
+    case SignalingMessageType.Answer:
+      handleAnswerMessage(sourcePeer, sourcePeerId, destinationPeer, destinationPeerId);
+      break;
+    case SignalingMessageType.Bye:
+      handleByeMessage(sourcePeer, sourcePeerId, destinationPeer, destinationPeerId);
+      break;
+    default:
+      break;
   }
 
   // Stamp messages with our id. In the client-to-server direction, 'id' is the
   // client that the message is sent to. In the server-to-client direction, it is
   // the client that the message originates from.
-  data.payload.id = id;
-  sendMessage(peer, data, (err) => {
+  message.payload.id = sourcePeerId;
+  sendMessage(destinationPeer.ws, message, (err) => {
     if (err) {
-      logger.info(`Failed to send message to peer '${peerId}' from client '${id}'`);
+      logger.info(`Failed to send message to peer '${destinationPeerId}' from client '${sourcePeerId}'`);
     }
   });
 };
@@ -68,14 +103,14 @@ signalRouter.get('/', async ({ websocket: ws }) => {
   const id = v4();
   logger.info(`New connection with id '${id}' has been received`);
 
-  if (connectionManagerService.hasConnection(id)) {
+  if (connectionManagerService.hasPeer(id)) {
     logger.info(`A duplicate connection with id '${id}' has been detected. Closing...`);
     ws.close();
     return;
   }
 
   // Store the connection in our map of connections.
-  connectionManagerService.addConnection(id, ws);
+  connectionManagerService.addPeer(id, ws);
 
   // Send a greeting to tell the client its id.
   sendMessage(ws, helloMessage(id));

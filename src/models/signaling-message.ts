@@ -1,32 +1,68 @@
 export enum SignalingMessageType {
+  Answer = 'answer',
+  Bye = 'bye',
   Hello = 'hello',
   IceServers = 'iceServers',
 }
 
-interface HelloMessage {
+interface Message {
+  type: string;
+}
+
+interface MessageWithPayload<T> extends Message {
+  payload: T;
+}
+
+interface IdPayload {
+  id: string;
+}
+
+interface ErrorPayload extends IdPayload {
+  error?: string;
+}
+
+interface ICEServersPayload {
+  iceServers: RTCIceServer[];
+}
+
+interface AnswerMessage extends MessageWithPayload<IdPayload> {
+  type: typeof SignalingMessageType.Answer;
+}
+
+interface ByeMessage extends MessageWithPayload<ErrorPayload> {
+  type: typeof SignalingMessageType.Bye;
+}
+
+interface HelloMessage extends MessageWithPayload<IdPayload> {
   type: typeof SignalingMessageType.Hello;
-  payload: string;
 }
 
-interface ICEServersMessage {
+interface ICEServersMessage extends MessageWithPayload<ICEServersPayload> {
   type: typeof SignalingMessageType.IceServers;
-  payload: RTCIceServer[];
 }
 
-export interface ClientMessage {
+export type ClientMessage = AnswerMessage | ByeMessage | MessageWithPayload<IdPayload>;
+
+export type SignalingMessage = ClientMessage | HelloMessage | ICEServersMessage;
+
+export const byeMessage = (id: string, error?: string): ByeMessage => ({
+  type: SignalingMessageType.Bye,
   payload: {
-    id: string;
-  };
-}
-
-export type SignalingMessage = HelloMessage | ICEServersMessage | ClientMessage;
-
-export const helloMessage = (id: string): SignalingMessage => ({
-  type: SignalingMessageType.Hello,
-  payload: id,
+    id,
+    error,
+  },
 });
 
-export const iceServersMessage = (iceServers: RTCIceServer[]): SignalingMessage => ({
+export const helloMessage = (id: string): HelloMessage => ({
+  type: SignalingMessageType.Hello,
+  payload: {
+    id,
+  },
+});
+
+export const iceServersMessage = (iceServers: RTCIceServer[]): ICEServersMessage => ({
   type: SignalingMessageType.IceServers,
-  payload: iceServers,
+  payload: {
+    iceServers,
+  },
 });
