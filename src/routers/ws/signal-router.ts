@@ -4,8 +4,17 @@ import { DefaultState, DefaultContext } from 'koa';
 import { v4 } from 'uuid';
 
 import { logger as baseLogger } from '../../logging/logger';
-import { RouteConfig } from '../../config';
-import { byeMessage, ErrorType, helloMessage, iceServersMessage, Peer, SignalingMessageType } from '../../models';
+import { AppConfig, RouteConfig } from '../../config';
+import {
+  byeMessage,
+  ErrorType,
+  heartbeatMessage,
+  helloMessage,
+  iceServersMessage,
+  isHeartbeatMessage,
+  Peer,
+  SignalingMessageType,
+} from '../../models';
 import { connectionManagerService, sessionManagerService } from '../../services';
 import { parseMessage, sendMessage } from '../../utils/message-utils';
 import { getIceServers } from '../../utils/ice-server-utils';
@@ -14,6 +23,7 @@ const logger = baseLogger.child({ module: 'SignalRouter' });
 const {
   signal: { prefix },
 } = RouteConfig;
+const { HEARTBEAT_INTERVAL } = AppConfig;
 
 const handleAnswerMessage = (sourcePeer: Peer, sourcePeerId: string, destinationPeer: Peer, destinationPeerId: string) => {
   sessionManagerService.createSession(destinationPeerId, sourcePeerId);
@@ -35,8 +45,9 @@ const handleByeMessage = (sourcePeer: Peer, sourcePeerId: string, destinationPee
 
 // Remove the connection. Note that this does not tell anyone you are currently in a call with
 // that this happened. This would require additional statekeeping that is not done here.
-const handleCloseForPeer = (id: string) => () => {
+const handleCloseForPeer = (id: string, intervalId: NodeJS.Timeout) => () => {
   logger.info(`Connection has been closed for id: ${id}`);
+  clearInterval(intervalId);
   const connectedPeers = connectionManagerService.getConnectedPeers(id);
   connectedPeers.forEach((peer) => {
     sendMessage(peer, byeMessage(id));
@@ -47,6 +58,11 @@ const handleCloseForPeer = (id: string) => () => {
 const handleMessageForPeer = (sourcePeerId: string) => (rawMessage: string) => {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const sourcePeer = connectionManagerService.getPeer(sourcePeerId)!;
+
+  if (isHeartbeatMessage(rawMessage)) {
+    return;
+  }
+
   const message = parseMessage(rawMessage);
 
   // Sending a 'bye' message with an appropriate error text
@@ -109,6 +125,10 @@ signalRouter.get('/', async ({ websocket: ws }) => {
     return;
   }
 
+  const heartbeatIntervalId = setInterval(() => {
+    sendMessage(ws, heartbeatMessage());
+  }, HEARTBEAT_INTERVAL);
+
   // Store the connection in our map of connections.
   connectionManagerService.addPeer(id, ws);
 
@@ -120,7 +140,7 @@ signalRouter.get('/', async ({ websocket: ws }) => {
   const iceServers = await getIceServers();
   sendMessage(ws, iceServersMessage(iceServers));
 
-  ws.on('close', handleCloseForPeer(id));
+  ws.on('close', handleCloseForPeer(id, heartbeatIntervalId));
 
   ws.on('message', handleMessageForPeer(id));
 });

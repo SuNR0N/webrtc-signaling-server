@@ -24,5 +24,6 @@ export const parseMessage = (message: string): ClientMessage | undefined => {
 };
 
 export const sendMessage = (ws: WebSocket, message: SignalingMessage, cb?: (err?: Error | undefined) => void): void => {
-  ws.send(JSON.stringify(message), cb);
+  const strMessage = typeof message === 'string' ? message : JSON.stringify(message);
+  ws.send(strMessage, cb);
 };

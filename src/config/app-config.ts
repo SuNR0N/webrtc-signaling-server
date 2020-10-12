@@ -1,5 +1,6 @@
 interface AppConfig {
   API_SPEC_PATH: string;
+  HEARTBEAT_INTERVAL: number;
   LOG_ERROR_PATH: string;
   LOG_PATH: string;
   PORT: number;
@@ -23,6 +24,7 @@ const resolveIceServers = (value?: string): string[] => {
 
 export const AppConfig: AppConfig = {
   API_SPEC_PATH: `${__dirname}/../../openapi/${name}.spec.yml`,
+  HEARTBEAT_INTERVAL: process.env.HEARTBEAT_INTERVAL ? parseInt(process.env.HEARTBEAT_INTERVAL, 10) : 20000,
   LOG_PATH: process.env.LOG_PATH || `${__dirname}/../../${name}.log`,
   LOG_ERROR_PATH: process.env.LOG_ERROR_PATH || `${__dirname}/../../${name}_error.log`,
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5000,

@@ -31,6 +31,7 @@ Given a TURN server is configured for ICE servers then _icecandidate (relay)_ ev
 Set up a `.env` file as follows:
 
 ```sh
+# HEARTBEAT_INTERVAL=20000
 # LOG_ERROR_PATH=webrtc-signaling-server_error.log
 # LOG_PATH=webrtc-signaling-server.log
 # PORT=5000
